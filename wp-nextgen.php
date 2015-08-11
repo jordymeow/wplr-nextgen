@@ -1,111 +1,158 @@
 <?php
-
 /*
-Plugin Name: NextGen for Lightroom
-Description: NextGen Extension for WP/LR Sync.
+Plugin Name: NextGEN for Lightroom
+Description: NextGEN Extension for Lightroom through the WP/LR Sync plugin.
 Version: 0.1.0
 Author: Jordy Meow
 Author URI: http://www.meow.fr
 */
 
-class WPLR_Extension_NextGen {
+class WPLR_Extension_NextGEN {
 
   public function __construct() {
 
-    // Reset
-    add_action( 'wplr_reset', array( $this, 'reset' ), 10, 0 );
+    // Init
+    add_filter( 'wplr_extensions', array( $this, 'extensions' ), 10, 1 );
 
     // Create / Update
     add_action( 'wplr_create_folder', array( $this, 'create_folder' ), 10, 3 );
     add_action( 'wplr_update_folder', array( $this, 'update_folder' ), 10, 2 );
     add_action( 'wplr_create_collection', array( $this, 'create_collection' ), 10, 3 );
     add_action( 'wplr_update_collection', array( $this, 'update_collection' ), 10, 2 );
-
-    // Move
-    add_action( "wplr_move_folder", array( $this, 'move_collection' ), 10, 3 );
+    add_action( "wplr_move_folder", array( $this, 'move_folder' ), 10, 3 );
     add_action( "wplr_move_collection", array( $this, 'move_collection' ), 10, 3 );
+
+    // Delete
+    add_action( "wplr_remove_collection", array( $this, 'remove_collection' ), 10, 1 );
+    add_action( "wplr_remove_folder", array( $this, 'remove_folder' ), 10, 1 );
 
     // Media
     add_action( "wplr_add_media_to_collection", array( $this, 'add_media_to_collection' ), 10, 2 );
     add_action( "wplr_remove_media_from_collection", array( $this, 'remove_media_from_collection' ), 10, 2 );
-    add_action( "wplr_remove_media", array( $this, 'remove_media' ), 10, 1 );
-    add_action( "wplr_remove_collection", array( $this, 'remove_collection' ), 10, 1 );
+    add_action( "wplr_update_media", array( $this, 'update_media' ), 10, 2 );
+
+    // Extra
+    //add_action( 'wplr_reset', array( $this, 'reset' ), 10, 0 );
+    //add_action( "wplr_clean", array( $this, 'clean' ), 10, 1 );
+    //add_action( "wplr_remove_media", array( $this, 'remove_media' ), 10, 1 );
   }
 
-  function log( $data ) {
-    $fh = fopen( trailingslashit( plugin_dir_path( __FILE__ ) ) . '/logs.log', 'a' );
-  	$date = date( "Y-m-d H:i:s" );
-  	fwrite( $fh, "$date: {$data}\n" );
-  	fclose( $fh );
+  function extensions( $extensions ) {
+    array_push( $extensions, 'NextGEN' );
+    return $extensions;
   }
 
-  // Plugins are asked to reset their support of folders/collections and the media in them.
-  // This is triggered by the Reset button in the Settings -> Media -> WP/LR Sync -> Maintenance.
-  function reset() {
-    $this->log( "reset" );
+  function create_collection( $collectionId, $inFolderId, $collection, $isFolder = false ) {
+    global $wpdb;
+    $ngg_album = $wpdb->prefix . "ngg_gallery";
+    $wpdb->insert( $ngg_album,
+      array(
+        'name' => $collection['name'],
+        'title' => $collection['name'],
+        'slug' => sanitize_title( $collection['name'] ),
+        'author' => get_current_user_id(),
+        'path' => 'wp-content\gallery\\' . sanitize_title( $collection['name'] ),
+        'galdesc' => ''
+      )
+    );
+    global $wplr;
+    $wplr->set_meta( 'nextgen_gallery_id', $collectionId, $wpdb->insert_id );
   }
 
-  // Created a new collection (ID $collectionId).
-  // Placed in the folder $inFolderId, or in the root if empty.
-  function create_collection( $collectionId, $inFolderId, $collection ) {
-    if ( empty( $inFolderId ) )
-      $inFolderId = "root";
-    $this->log( sprintf( "create_collection %d (%s) in %s.", $collectionId, $collection['name'], $inFolderId ), true );
-  }
-
-  // Created a new folder (ID $folderId).
-  // Placed in the folder $inFolderId, or in the root if empty.
   function create_folder( $folderId, $inFolderId, $folder ) {
-    if ( empty( $inFolderId ) )
-      $inFolderId = "root";
-    $this->log( sprintf( "create_folder %d (%s) in %s.", $folderId, $folder['name'], $inFolderId ), true );
+    // global $wpdb;
+    // $ngg_album = $wpdb->prefix . "ngg_album";
+    // $wpdb->insert( $ngg_album,
+    //   array(
+    //     'name' => $folder['name'],
+    //     'slug' => sanitize_title( $folder['name'] )
+    //   )
+    // );
+    // global $wplr;
+    // $wplr->set_meta( 'nextgen_album_id', $folderId, $wpdb->insert_id );
   }
 
   // Updated the collection with new information.
   // Currently, that would be only its name.
   function update_collection( $collectionId, $collection ) {
-    $this->log( sprintf( "update_collection %d (%s).", $collectionId, $collection['name'] ), true );
+    $wplr->get_meta( 'nextgen_album_id', $folderId );
   }
 
   // Updated the folder with new information.
   // Currently, that would be only its name.
   function update_folder( $folderId, $folder ) {
-    $this->log( sprintf( "update_folder %d (%s).", $folderId, $folder['name'] ), true );
   }
 
   // Moved the collection under another folder.
   // If the folder is empty, then it is the root.
   function move_collection( $collectionId, $folderId, $previousFolderId ) {
-    if ( empty( $folderId ) )
-      $folderId = "root";
-    if ( empty( $previousFolderId ) )
-      $previousFolderId = "root";
-    $this->log( sprintf( "move_collection %d from %s to %s.", $collectionId, $previousFolderId, $folderId ), true );
   }
 
   // Added meta to a collection.
   // The $mediaId is actually the WordPress Post/Attachment ID.
   function add_media_to_collection( $mediaId, $collectionId ) {
-    $this->log( sprintf( "add_media_to_collection %d to collection %d.", $mediaId, $collectionId ), true );
+    global $wplr;
+
+    // Upload the file to the gallery
+    $gallery_id = $wplr->get_meta( 'nextgen_gallery_id', $collectionId );
+    $abspath = get_attached_file( $mediaId );
+    $file_data = file_get_contents( $abspath );
+    $file_name = M_I18n::mb_basename( $abspath );
+    $attachment = get_post( $mediaId );
+    $storage = C_Gallery_Storage::get_instance();
+    $image = $storage->upload_base64_image( $gallery_id, $file_data, $file_name );
+    $wplr->set_meta( 'nextgen_collection_' . $collectionId . '_image_id', $mediaId, $image->id() );
+
+    // Import metadata from WordPress
+    $image_mapper = C_Image_Mapper::get_instance();
+    $image = $image_mapper->find( $image->id() );
+    if ( !empty( $attachment->post_excerpt ) )
+      $image->alttext = $attachment->post_excerpt;
+    if ( !empty( $attachment->post_content ) )
+      $image->description = $attachment->post_content;
+    $image_mapper->save( $image );
   }
 
   // Remove media from the collection.
   function remove_media_from_collection( $mediaId, $collectionId ) {
-    $this->log( sprintf( "remove_media_from_collection %d from %d.", $mediaId, $collectionId ), true );
+    global $wplr;
+    $imageId = $wplr->get_meta( 'nextgen_collection_' . $collectionId . '_image_id', $mediaId );
+    $image_mapper = C_Image_Mapper::get_instance();
+    $image = $image_mapper->find( $imageId );
+    $storage = C_Gallery_Storage::get_instance();
+    $storage->delete_image( $image );
+    $wplr->delete_meta( 'nextgen_collection_' . $collectionId . '_image_id', $mediaId );
   }
 
-  // The media was physically deleted.
-  function remove_media( $mediaId ) {
-    $this->log( sprintf( "remove_media %d.", $mediaId ), true );
+  // The media file was updated.
+  // Since NextGEN uses its own copies, we need to delete the current one and add a new one.
+  function update_media( $mediaId, $collectionIds ) {
+    foreach ( $collectionIds as $collectionId ) {
+      $this->remove_media_from_collection( $mediaId, $collectionId );
+      $this->add_media_to_collection( $mediaId, $collectionId );
+    }
   }
 
   // The collection was deleted.
   function remove_collection( $collectionId ) {
-    $this->log( sprintf( "remove_collection %d.", $collectionId ), true );
+    global $wpdb;
+    global $wplr;
+    $id = $wplr->get_meta( "nextgen_gallery_id", $collectionId );
+    $ngg_gallery = $wpdb->prefix . "ngg_gallery";
+    $wpdb->delete( $ngg_gallery, array( 'gid' => $id ) );
+    $wplr->delete_meta( "nextgen_gallery_id", $collectionId );
   }
 
+  // Delete the folder.
+  function remove_folder( $folderId ) {
+    // global $wpdb;
+    // global $wplr;
+    // $ngg_album = $wpdb->prefix . "ngg_album";
+    // $id = $wplr->get_meta( "nextgen_album_id", $folderId );
+    // $wpdb->delete( $ngg_album, array( 'id' => $id ) );
+  }
 }
 
-new WPLR_Extension_NextGen;
+new WPLR_Extension_NextGEN;
 
 ?>
