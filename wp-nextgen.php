@@ -43,7 +43,7 @@ class WPLR_Extension_NextGEN {
   }
 
   function create_collection( $collectionId, $inFolderId, $collection, $isFolder = false ) {
-    global $wpdb;
+    global $wpdb, $wplr;
     $ngg_album = $wpdb->prefix . "ngg_gallery";
     $wpdb->insert( $ngg_album,
       array(
@@ -55,21 +55,34 @@ class WPLR_Extension_NextGEN {
         'galdesc' => ''
       )
     );
-    global $wplr;
     $wplr->set_meta( 'nextgen_gallery_id', $collectionId, $wpdb->insert_id );
   }
 
   function create_folder( $folderId, $inFolderId, $folder ) {
-    // global $wpdb;
-    // $ngg_album = $wpdb->prefix . "ngg_album";
-    // $wpdb->insert( $ngg_album,
-    //   array(
-    //     'name' => $folder['name'],
-    //     'slug' => sanitize_title( $folder['name'] )
-    //   )
-    // );
-    // global $wplr;
-    // $wplr->set_meta( 'nextgen_album_id', $folderId, $wpdb->insert_id );
+    global $wpdb, $wplr;
+    $ngg_album = $wpdb->prefix . "ngg_album";
+
+    // Create the entry in NextGEN Album
+    $wpdb->insert( $ngg_album,
+      array(
+        'name' => $folder['name'],
+        'sortorder' => 'W10=',
+        'slug' => sanitize_title( $folder['name'] )
+      )
+    );
+    $wplr->set_meta( 'nextgen_album_id', $folderId, $wpdb->insert_id );
+
+    // Create the ngg_album post type entry (mixin_nextgen_table_extras)
+    // No idea why NextGEN is doing that to store its metadata, there are definitely better ways.
+    $post = array(
+      'post_title'    => 'Untitled ngg_album',
+      'post_name'     => 'mixin_nextgen_table_extras',
+      'post_status'   => 'draft',
+      'post_type'     => 'ngg_album'
+    );
+    $id = wp_insert_post( $post );
+    $wplr->set_meta( 'nextgen_post_album_id', $folderId, $id );
+
   }
 
   // Updated the collection with new information.
@@ -135,8 +148,7 @@ class WPLR_Extension_NextGEN {
 
   // The collection was deleted.
   function remove_collection( $collectionId ) {
-    global $wpdb;
-    global $wplr;
+    global $wpdb, $wplr;
     $id = $wplr->get_meta( "nextgen_gallery_id", $collectionId );
     $ngg_gallery = $wpdb->prefix . "ngg_gallery";
     $wpdb->delete( $ngg_gallery, array( 'gid' => $id ) );
@@ -145,11 +157,16 @@ class WPLR_Extension_NextGEN {
 
   // Delete the folder.
   function remove_folder( $folderId ) {
-    // global $wpdb;
-    // global $wplr;
-    // $ngg_album = $wpdb->prefix . "ngg_album";
-    // $id = $wplr->get_meta( "nextgen_album_id", $folderId );
-    // $wpdb->delete( $ngg_album, array( 'id' => $id ) );
+    global $wpdb, $wplr;
+
+    // Delete the album
+    $ngg_album = $wpdb->prefix . "ngg_album";
+    $albumId = $wplr->get_meta( 'nextgen_album_id', $folderId );
+    $wpdb->delete( $albumId, array( 'id' => $albumId ) );
+
+    // Delete post and meta related to that album
+    $postId = $wplr->get_meta( 'nextgen_post_album_id', $folderId );
+    wp_delete_post( $postId, true );
   }
 }
 
