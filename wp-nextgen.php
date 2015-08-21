@@ -2,7 +2,7 @@
 /*
 Plugin Name: NextGEN for Lightroom
 Description: NextGEN Extension for Lightroom through the WP/LR Sync plugin.
-Version: 0.1.0
+Version: 0.2.0
 Author: Jordy Meow
 Author URI: http://www.meow.fr
 */
@@ -43,19 +43,15 @@ class WPLR_Extension_NextGEN {
   }
 
   function create_collection( $collectionId, $inFolderId, $collection, $isFolder = false ) {
-    global $wpdb, $wplr;
-    $ngg_album = $wpdb->prefix . "ngg_gallery";
-    $wpdb->insert( $ngg_album,
-      array(
-        'name' => $collection['name'],
-        'title' => $collection['name'],
-        'slug' => sanitize_title( $collection['name'] ),
-        'author' => get_current_user_id(),
-        'path' => 'wp-content\gallery\\' . sanitize_title( $collection['name'] ),
-        'galdesc' => ''
-      )
-    );
-    $newGalleryId = $wpdb->insert_id;
+    global $wplr;
+
+    $mapper = C_Gallery_Mapper::get_instance();
+		if ( ( $gallery = $mapper->create( array( 'title'	=>	$collection['name'] ) ) ) && $gallery->save() )
+			$newGalleryId = $gallery->id();
+		else {
+      error_log( "Failed to create collection $collectionId." );
+      return;
+    }
     $wplr->set_meta( 'nextgen_gallery_id', $collectionId, $newGalleryId );
 
     // Use NextGEN functions to include this collection in a folder
@@ -65,26 +61,22 @@ class WPLR_Extension_NextGEN {
       $album = $mapper->find( $inAlbumId );
       $album->sortorder[] = $newGalleryId;
       $mapper->save( $album );
-      error_log( "Sortorder " . implode( ', ', $album->sortorder ) . " in album $inAlbumId." );
     }
   }
 
   function create_folder( $folderId, $inFolderId, $folder ) {
-    global $wpdb, $wplr;
-    $ngg_album = $wpdb->prefix . "ngg_album";
+    global $wplr;
 
     // Create the entry in NextGEN Album
-    $wpdb->insert( $ngg_album,
-      array(
-        'name' => $folder['name'],
-        'sortorder' => 'W10=',
-        'slug' => sanitize_title( $folder['name'] )
-      )
-    );
-    $newAlbumId = $wpdb->insert_id;
+    $mapper = C_Album_Mapper::get_instance();
+		$album = $mapper->create( array( 'name' =>	$folder['name'], 'sortorder' => 'W10=' ) );
+		if ( $album->save() )
+      $newAlbumId = $album->id();
+		else {
+      error_log( "Failed to create folder $folderId." );
+      return;
+    }
     $wplr->set_meta( 'nextgen_album_id', $folderId, $newAlbumId );
-
-    error_log( "Created album $newAlbumId." );
 
     // Use NextGEN functions to include this folder in another folder
     if ( $inFolderId ) {
@@ -215,6 +207,7 @@ class WPLR_Extension_NextGEN {
     $ngg_album = $wpdb->prefix . "ngg_album";
     $albumId = $wplr->get_meta( 'nextgen_album_id', $folderId );
     $wpdb->delete( $ngg_album, array( 'id' => $albumId ) );
+    $wplr->delete_meta( "nextgen_album_id", $folderId );
   }
 }
 

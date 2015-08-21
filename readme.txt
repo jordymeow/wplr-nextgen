@@ -1,10 +1,10 @@
 === NextGEN for Lightroom ===
 Contributors: TigrouMeow
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=H2S7S3G4XMJ6J
-Tags: lightroom, image, gallery, media, photo, export, management, admin, sync, synchronization
+Tags: lightroom, nextgen, image, gallery, media, photo, export, management, admin, sync, synchronization
 Requires at least: 4.0
-Tested up to: 4.2.4
-Stable tag: 0.1.2
+Tested up to: 4.3
+Stable tag: 0.2.0
 
 NextGEN will be synchronized with Lightroom. This magic requires also the WP/LR Sync plugin to be installed.
 
@@ -31,8 +31,9 @@ Official FAQ is here: http://apps.meow.fr/wplr-sync/faq.
 
 == Changelog ==
 
-= 0.1.2 =
-* Support for albums.
+= 0.2.0 =
+* Add: Support for albums.
+* Update: Use NextGEN internal functions.
 
 = 0.1.0 =
 * First release.
