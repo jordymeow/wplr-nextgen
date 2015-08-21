@@ -55,7 +55,18 @@ class WPLR_Extension_NextGEN {
         'galdesc' => ''
       )
     );
-    $wplr->set_meta( 'nextgen_gallery_id', $collectionId, $wpdb->insert_id );
+    $newGalleryId = $wpdb->insert_id;
+    $wplr->set_meta( 'nextgen_gallery_id', $collectionId, $newGalleryId );
+
+    // Use NextGEN functions to include this collection in a folder
+    if ( $inFolderId ) {
+      $inAlbumId = $wplr->get_meta( 'nextgen_album_id', $inFolderId );
+      $mapper = C_Album_Mapper::get_instance();
+      $album = $mapper->find( $inAlbumId );
+      $album->sortorder[] = $newGalleryId;
+      $mapper->save( $album );
+      error_log( "Sortorder " . implode( ', ', $album->sortorder ) . " in album $inAlbumId." );
+    }
   }
 
   function create_folder( $folderId, $inFolderId, $folder ) {
@@ -70,18 +81,19 @@ class WPLR_Extension_NextGEN {
         'slug' => sanitize_title( $folder['name'] )
       )
     );
-    $wplr->set_meta( 'nextgen_album_id', $folderId, $wpdb->insert_id );
+    $newAlbumId = $wpdb->insert_id;
+    $wplr->set_meta( 'nextgen_album_id', $folderId, $newAlbumId );
 
-    // Create the ngg_album post type entry (mixin_nextgen_table_extras)
-    // No idea why NextGEN is doing that to store its metadata, there are definitely better ways.
-    $post = array(
-      'post_title'    => 'Untitled ngg_album',
-      'post_name'     => 'mixin_nextgen_table_extras',
-      'post_status'   => 'draft',
-      'post_type'     => 'ngg_album'
-    );
-    $id = wp_insert_post( $post );
-    $wplr->set_meta( 'nextgen_post_album_id', $folderId, $id );
+    error_log( "Created album $newAlbumId." );
+
+    // Use NextGEN functions to include this folder in another folder
+    if ( $inFolderId ) {
+      $inAlbumId = $wplr->get_meta( 'nextgen_album_id', $inFolderId );
+      $mapper = C_Album_Mapper::get_instance();
+      $album = $mapper->find( $inAlbumId );
+      $album->sortorder[] = "a$newAlbumId";
+      $mapper->save( $album );
+    }
 
   }
 
@@ -98,7 +110,47 @@ class WPLR_Extension_NextGEN {
 
   // Moved the collection under another folder.
   // If the folder is empty, then it is the root.
-  function move_collection( $collectionId, $folderId, $previousFolderId ) {
+  function move_collection( $collectionId, $inFolderId, $previousFolderId ) {
+    $galleryId = $wplr->get_meta( 'nextgen_gallery_id', $collectionId );
+    $mapper = C_Album_Mapper::get_instance();
+
+    // Use NextGEN functions to delete this collection from a folder
+    if ( $previousFolderId ) {
+      $previousAlbumId = $wplr->get_meta( 'nextgen_album_id', $previousFolderId );
+      $album = $mapper->find( $previousAlbumId );
+      $album->sortorder = array_diff( $album->sortorder, array( $galleryId ) );
+      $mapper->save( $album );
+    }
+
+    // Use NextGEN functions to include this collection in a folder
+    if ( $inFolderId ) {
+      $inAlbumId = $wplr->get_meta( 'nextgen_album_id', $inFolderId );
+      $album = $mapper->find( $inAlbumId );
+      $album->sortorder[] = $galleryId;
+      $mapper->save( $album );
+    }
+
+  }
+
+  function move_folder( $folderId, $inFolderId, $previousFolderId ) {
+    $albumId = $wplr->get_meta( 'nextgen_album_id', $folderId );
+    $mapper = C_Album_Mapper::get_instance();
+
+    // Use NextGEN functions to delete this collection from a folder
+    if ( $previousFolderId ) {
+      $previousAlbumId = $wplr->get_meta( 'nextgen_album_id', $previousFolderId );
+      $album = $mapper->find( $previousAlbumId );
+      $album->sortorder = array_diff( $album->sortorder, array( "a$albumId" ) );
+      $mapper->save( $album );
+    }
+
+    // Use NextGEN functions to include this collection in a folder
+    if ( $inFolderId ) {
+      $inAlbumId = $wplr->get_meta( 'nextgen_album_id', $inFolderId );
+      $album = $mapper->find( $inAlbumId );
+      $album->sortorder[] = "a$albumId";
+      $mapper->save( $album );
+    }
   }
 
   // Added meta to a collection.
@@ -162,11 +214,7 @@ class WPLR_Extension_NextGEN {
     // Delete the album
     $ngg_album = $wpdb->prefix . "ngg_album";
     $albumId = $wplr->get_meta( 'nextgen_album_id', $folderId );
-    $wpdb->delete( $albumId, array( 'id' => $albumId ) );
-
-    // Delete post and meta related to that album
-    $postId = $wplr->get_meta( 'nextgen_post_album_id', $folderId );
-    wp_delete_post( $postId, true );
+    $wpdb->delete( $ngg_album, array( 'id' => $albumId ) );
   }
 }
 
