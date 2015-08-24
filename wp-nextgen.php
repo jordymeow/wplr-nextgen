@@ -2,7 +2,7 @@
 /*
 Plugin Name: NextGEN for Lightroom
 Description: NextGEN Extension for Lightroom through the WP/LR Sync plugin.
-Version: 0.2.0
+Version: 0.3.0
 Author: Jordy Meow
 Author URI: http://www.meow.fr
 */
@@ -192,21 +192,17 @@ class WPLR_Extension_NextGEN {
 
   // The collection was deleted.
   function remove_collection( $collectionId ) {
-    global $wpdb, $wplr;
+    global $wplr;
     $id = $wplr->get_meta( "nextgen_gallery_id", $collectionId );
-    $ngg_gallery = $wpdb->prefix . "ngg_gallery";
-    $wpdb->delete( $ngg_gallery, array( 'gid' => $id ) );
+    C_Gallery_Mapper::get_instance()->destroy( $id, TRUE );
     $wplr->delete_meta( "nextgen_gallery_id", $collectionId );
   }
 
   // Delete the folder.
   function remove_folder( $folderId ) {
-    global $wpdb, $wplr;
-
-    // Delete the album
-    $ngg_album = $wpdb->prefix . "ngg_album";
+    global $wplr;
     $albumId = $wplr->get_meta( 'nextgen_album_id', $folderId );
-    $wpdb->delete( $ngg_album, array( 'id' => $albumId ) );
+    C_Album_Mapper::get_instance()->destroy( $albumId, TRUE );
     $wplr->delete_meta( "nextgen_album_id", $folderId );
   }
 }
