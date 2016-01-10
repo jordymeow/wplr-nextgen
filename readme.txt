@@ -12,6 +12,8 @@ NextGEN will be synchronized with Lightroom. This magic requires also the WP/LR 
 
 NextGEN will be synchronized with Lightroom (your photos, collections, and collection sets). This magic requires also the WP/LR Sync plugin to be installed.
 
+This extension for WP/LR Sync has been developed by the author of WP/LR Sync. However, ideally, this extension should be enhanced by geeky users and the NextGEN developers. You are all welcome to come and contribute on GitHub, here: https://github.com/jordymeow/wplr-nextgen. The WordPress repository is updated every time we reach a stable version of GitHub.
+
 Languages: English.
 
 == Installation ==
